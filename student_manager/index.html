@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Student Manager</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            padding: 30px;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .delete {
+            background: #dc2626;
+        }
+
+        .student {
+            padding: 12px;
+            margin-top: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        #message {
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Student Manager</h1>
+        <p>Add and manage student records.</p>
+
+        <form id="studentForm">
+            <input id="name" placeholder="Student name" required maxlength="100">
+            <input id="email" type="email" placeholder="Email" required maxlength="254">
+            <input id="age" type="number" placeholder="Age" min="1" max="120" required>
+            <input id="department" placeholder="Department" required maxlength="100">
+            <button type="submit">Add Student</button>
+        </form>
+
+        <p id="message" role="status"></p>
+
+        <h2>Saved Students</h2>
+        <div id="students">Loading students...</div>
+    </div>
+
+    <script>
+        const form = document.getElementById("studentForm");
+        const message = document.getElementById("message");
+        const studentsBox = document.getElementById("students");
+
+        async function loadStudents() {
+            try {
+                const response = await fetch("/students");
+
+                if (!response.ok) {
+                    throw new Error("Could not load students.");
+                }
+
+                const students = await response.json();
+                studentsBox.replaceChildren();
+
+                if (students.length === 0) {
+                    studentsBox.textContent = "No students saved yet.";
+                    return;
+                }
+
+                students.forEach(student => {
+                    const card = document.createElement("div");
+                    card.className = "student";
+
+                    const details = document.createElement("p");
+                    details.textContent =
+                        `${student.name} | ${student.email} | Age: ${student.age} | ${student.department}`;
+
+                    const deleteButton = document.createElement("button");
+                    deleteButton.className = "delete";
+                    deleteButton.textContent = "Delete";
+
+                    deleteButton.addEventListener("click", async () => {
+                        try {
+                            const response = await fetch(
+                                `/students/${student.id}`,
+                                { method: "DELETE" }
+                            );
+
+                            if (!response.ok) {
+                                throw new Error("Delete failed.");
+                            }
+
+                            message.textContent = "Student deleted.";
+                            await loadStudents();
+                        } catch (error) {
+                            message.textContent = error.message;
+                        }
+                    });
+
+                    card.append(details, deleteButton);
+                    studentsBox.append(card);
+                });
+            } catch (error) {
+                studentsBox.textContent = error.message;
+            }
+        }
+
+        form.addEventListener("submit", async event => {
+            event.preventDefault();
+            message.textContent = "Saving student...";
+
+            const student = {
+                name: document.getElementById("name").value.trim(),
+                email: document.getElementById("email").value.trim(),
+                age: Number(document.getElementById("age").value),
+                department: document.getElementById("department").value.trim()
+            };
+
+            try {
+                const response = await fetch("/students", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(student)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.detail
+                            ? JSON.stringify(result.detail)
+                            : "Could not save student."
+                    );
+                }
+
+                message.textContent = result.message;
+                form.reset();
+                await loadStudents();
+            } catch (error) {
+                message.textContent = "Error: " + error.message;
+            }
+        });
+
+        loadStudents();
+    </script>
+</body>
+</html>
+
